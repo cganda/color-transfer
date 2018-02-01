@@ -1,12 +1,74 @@
+import java.awt.*; //<>//
+import java.awt.image.*;
+import javax.imageio.*;
+import java.io.*;
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
+
 PImage img;
 PImage sortedImg;
 PImage colorImg;
 PImage sortedColorImg;
 PImage finalImg;
+String shapeSourceName;
+String colorSourceName;
+
+boolean isSelecting;
+
+enum imageSourceType {
+  SHAPE, COLOR
+};
 
 void setup() {
   size(1200, 400);
-  img = loadImage("hand.jpg");
+  img = null;
+  colorImg = null;
+  finalImg = null;
+  shapeSourceName = null;
+  colorSourceName = null;
+  isSelecting = false;
+
+
+  selectImage(imageSourceType.SHAPE);
+  selectImage(imageSourceType.COLOR);
+
+  processImages();
+}
+
+void draw() {
+  background(0);
+  if (img != null)
+    image(img, 0, 0);
+  if (finalImg != null)
+    image(finalImg, 400, 0);
+  if (colorImg != null)
+    image(colorImg, 800, 0);
+}
+
+void selectImage(imageSourceType type) {
+  if (type == imageSourceType.SHAPE) {
+    while (!(shapeSourceName != null)) {
+      if (!isSelecting) {
+        isSelecting = true;
+        selectInput("Select shape image", "shapeImageSelected");
+      }
+      System.out.print("w"); // doesn't work without this
+    }
+    System.out.println("out of while loop");
+  } else if (type == imageSourceType.COLOR) {
+    while (!(colorSourceName != null)) {
+      if (!isSelecting) {
+        isSelecting = true;
+        selectInput("Select color image", "colorImageSelected");
+      }
+      System.out.print("w"); // doesn't work without this
+    }
+    System.out.println("out of while loop");
+  }
+}
+
+void processImages() {
+  //img = loadImage(shapeSourceName);
   if (img.width > img.height) {
     img.resize(400, 0);
   } else {
@@ -14,20 +76,17 @@ void setup() {
   }
   img.loadPixels();
 
-  colorImg = loadImage("city.jpg");
-  if (img.width > img.height) {
-    img.resize(400, 0);
+  //colorImg = loadImage(colorSourceName);
+  if (colorImg.width > colorImg.height) {
+    colorImg.resize(400, 0);
   } else {
-    img.resize(0, 400);
+    colorImg.resize(0, 400);
   }
   colorImg.loadPixels();
 
   sortedImg = createImage(img.width, img.height, RGB);
   sortedColorImg = createImage(colorImg.width, colorImg.height, RGB);
   finalImg = createImage(img.width, img.height, RGB);
-
-  sortedImg = img.get();
-  sortedImg.loadPixels();
 
   sortedColorImg = colorImg.get();
   sortedColorImg.loadPixels();
@@ -41,14 +100,58 @@ void setup() {
   sortedColorImg.updatePixels();
   //colorizeB(finalImg.pixels, sortedColorImg.pixels, sortedColorImg.width);
   colorizeC(finalImg, sortedColorImg);
-  sortedImg.updatePixels();
+}
+void shapeImageSelected(File selection) {
+  imageSelected(selection, imageSourceType.SHAPE);
+}
+void colorImageSelected(File selection) {
+  imageSelected(selection, imageSourceType.COLOR);
 }
 
-void draw() {
-  background(0);
-  image(img, 0, 0);
-  image(finalImg, 400, 0);
-  image(colorImg, 800, 0);
+void imageSelected(File selection, imageSourceType type) {
+  if (selection != null) {
+    String name = selection.getName();
+    System.out.printf("name: %s\ngetAbsolutePath: %s\n", name, selection.getAbsolutePath());
+
+    Pattern p = Pattern.compile(".*[.](gif|png|jpeg|jpg|bmp|GIF|PNG|JPEG|JPG|BMP)$");
+    Matcher m = p.matcher(name);
+    if (!m.matches()) {
+      System.out.println("Not an image file");
+      return;
+    }
+
+    BufferedImage bimg;
+    int imgWidth;
+    int imgHeight;
+    try {
+      bimg = ImageIO.read(selection);
+
+      imgWidth = bimg.getWidth();
+      imgHeight = bimg.getHeight();
+
+      System.out.printf("image width:%d height:%d", imgWidth, imgHeight);
+
+      if (type == imageSourceType.SHAPE) {
+        img = new PImage(bimg);
+        img.updatePixels();
+
+        isSelecting = false;
+        shapeSourceName = name;
+        System.out.printf("shapeSourceName:%s isSelecting:%b\n", shapeSourceName, isSelecting);
+      } else if (type == imageSourceType.COLOR) {
+        colorImg = new PImage(bimg);
+        colorImg.updatePixels();
+
+        isSelecting = false;
+
+        colorSourceName = name;
+        System.out.printf("colorSourceName:%s isSelecting:%b\n", colorSourceName, isSelecting);
+      }
+    }
+    catch(IOException ex) {
+      ex.printStackTrace();
+    }
+  }
 }
 
 void colorizeA(int[] shape, int[] colors) {
