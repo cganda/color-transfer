@@ -141,23 +141,22 @@ void colorizeC(PImage shape, PImage colors){
   }
   
   // fill xCoords and yCoords
-  reversableQuicksort(shape.pixels, 0, shape.pixels.length -1, originalIndexes);
+  reversableQuicksort(shape.pixels, 0, shape.pixels.length -1, 0, originalIndexes);
   //setup colors to copy
   colors.resize(shape.width, shape.height);
-  
-  // todo: try sorting rows by hue before reverting position
-   /*
-  //sort each row
-  System.out.printf("width:%d height:%d length:%d\n", sortedColorImg.width, sortedColorImg.height, sortedColorImg.pixels.length);
-  for(int row = 0; row < sortedColorImg.height; row++){
-    int lo = row * sortedColorImg.width;
-    int hi = (row + 1) * sortedColorImg.width - 1;
-    System.out.printf("row:%d lo:%d hi:%d\n", row, lo, hi);
-    quickSort(sortedColorImg.pixels, lo, hi, 1);
+     
+  //sort each row by hue
+  for(int row = 0; row < colors.height; row++){
+    int lo = row * colors.width;
+    int hi = (row + 1) * colors.width - 1;
+    quickSort(colors.pixels, lo, hi, 1);
   }
-  */
   
-  
+  for(int row = 0; row < shape.height; row++){
+    int lo = row * shape.width;
+    int hi = (row + 1) * shape.width - 1;
+    reversableQuicksort(shape.pixels, lo, hi, 1, originalIndexes);
+  }
   
   // revert pixel positions
   for(int i = 0; i < shape.pixels.length; i++){
@@ -196,25 +195,29 @@ int partition(int[] A, int lo, int hi, int flag){
 }
 
 // quicksort that saves original positions
-void reversableQuicksort(int[] A, int lo, int hi, int[] indexes){
+void reversableQuicksort(int[] A, int lo, int hi, int flag, int[] indexes){
   if(lo < hi){
-    int p = reversablePartition(A, lo, hi, indexes);
-    reversableQuicksort(A, lo, p - 1, indexes);
-    reversableQuicksort(A, p + 1, hi, indexes);
+    int p = reversablePartition(A, lo, hi, flag, indexes);
+    reversableQuicksort(A, lo, p - 1, flag, indexes);
+    reversableQuicksort(A, p + 1, hi, flag, indexes);
   }
 }
 
-int reversablePartition(int[] A, int lo, int hi, int[] indexes){
-  float pivot = brightness(color(A[hi]));
+int reversablePartition(int[] A, int lo, int hi, int flag, int[] indexes){
+  float pivot = flag == 0 ? brightness(color(A[hi])) : hue(color(A[hi]));
   int i = lo - 1;
   for(int j = lo; j < hi; j++){
-    if(brightness(color(A[j])) < pivot){
+    if((flag == 0 && brightness(color(A[j])) < pivot) ||
+       (flag == 1 && hue(color(A[j])) < pivot)
+    ){
       i = i + 1;
       swap(A, i, j);
       swap(indexes, i, j);
     }
   }
-  if(brightness(color(A[hi])) < brightness(color(A[i + 1]))){
+  if((flag == 0 && brightness(color(A[hi])) < brightness(color(A[i + 1]))) ||
+     (flag == 1 && hue(color(A[hi])) < hue(color(A[i + 1])))
+  ){
      swap(A, i+1, hi);
      swap(indexes, i+1, hi);
   }
