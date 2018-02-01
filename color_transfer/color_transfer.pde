@@ -5,7 +5,7 @@ import java.io.*;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 
-PImage img;
+PImage shapeImg;
 PImage sortedImg;
 PImage colorImg;
 PImage sortedColorImg;
@@ -13,7 +13,7 @@ PImage finalImg;
 String shapeSourceName;
 String colorSourceName;
 
-boolean isSelecting;
+boolean isFinished;
 
 enum imageSourceType {
   SHAPE, COLOR
@@ -21,83 +21,61 @@ enum imageSourceType {
 
 void setup() {
   size(1200, 400);
-  img = null;
+  shapeImg = null;
   colorImg = null;
   finalImg = null;
   shapeSourceName = null;
   colorSourceName = null;
-  isSelecting = false;
-
+  isFinished = false;
 
   selectImage(imageSourceType.SHAPE);
   selectImage(imageSourceType.COLOR);
-
-  processImages();
 }
 
 void draw() {
   background(0);
-  if (img != null)
-    image(img, 0, 0);
-  if (finalImg != null)
+ 
+  if (shapeSourceName != null && shapeImg != null)
+    image(shapeImg, 0, 0);
+  if (isFinished && finalImg != null)
     image(finalImg, 400, 0);
-  if (colorImg != null)
+  if (colorSourceName != null && colorImg != null)
     image(colorImg, 800, 0);
 }
 
 void selectImage(imageSourceType type) {
   if (type == imageSourceType.SHAPE) {
-    while (!(shapeSourceName != null)) {
-      if (!isSelecting) {
-        isSelecting = true;
-        selectInput("Select shape image", "shapeImageSelected");
-      }
-      System.out.print("w"); // doesn't work without this
-    }
-    System.out.println("out of while loop");
+    selectInput("Select shape image", "shapeImageSelected");
   } else if (type == imageSourceType.COLOR) {
-    while (!(colorSourceName != null)) {
-      if (!isSelecting) {
-        isSelecting = true;
-        selectInput("Select color image", "colorImageSelected");
-      }
-      System.out.print("w"); // doesn't work without this
-    }
-    System.out.println("out of while loop");
+    selectInput("Select color image", "colorImageSelected");
   }
 }
 
 void processImages() {
-  //img = loadImage(shapeSourceName);
-  if (img.width > img.height) {
-    img.resize(400, 0);
+  if (shapeImg.width > shapeImg.height) {
+    shapeImg.resize(400, 0);
   } else {
-    img.resize(0, 400);
+    shapeImg.resize(0, 400);
   }
-  img.loadPixels();
 
-  //colorImg = loadImage(colorSourceName);
   if (colorImg.width > colorImg.height) {
     colorImg.resize(400, 0);
   } else {
     colorImg.resize(0, 400);
   }
-  colorImg.loadPixels();
 
-  sortedImg = createImage(img.width, img.height, RGB);
   sortedColorImg = createImage(colorImg.width, colorImg.height, RGB);
-  finalImg = createImage(img.width, img.height, RGB);
-
   sortedColorImg = colorImg.get();
   sortedColorImg.loadPixels();
 
-  finalImg = img.get();
+  finalImg = createImage(shapeImg.width, shapeImg.height, RGB);
+  finalImg = shapeImg.get();
   finalImg.loadPixels();
 
   int sortType = 0;// 0 brightness, 1 hue
   quickSort(sortedColorImg.pixels, 0, sortedColorImg.pixels.length - 1, sortType);
-
   sortedColorImg.updatePixels();
+
   //colorizeB(finalImg.pixels, sortedColorImg.pixels, sortedColorImg.width);
   colorizeC(finalImg, sortedColorImg);
 }
@@ -117,6 +95,7 @@ void imageSelected(File selection, imageSourceType type) {
     Matcher m = p.matcher(name);
     if (!m.matches()) {
       System.out.println("Not an image file");
+      selectImage(type); // try again
       return;
     }
 
@@ -132,24 +111,20 @@ void imageSelected(File selection, imageSourceType type) {
       System.out.printf("image width:%d height:%d", imgWidth, imgHeight);
 
       if (type == imageSourceType.SHAPE) {
-        img = new PImage(bimg);
-        img.updatePixels();
-
-        isSelecting = false;
+        shapeImg = new PImage(bimg);
         shapeSourceName = name;
-        System.out.printf("shapeSourceName:%s isSelecting:%b\n", shapeSourceName, isSelecting);
       } else if (type == imageSourceType.COLOR) {
         colorImg = new PImage(bimg);
-        colorImg.updatePixels();
-
-        isSelecting = false;
-
         colorSourceName = name;
-        System.out.printf("colorSourceName:%s isSelecting:%b\n", colorSourceName, isSelecting);
+      }
+
+      if (colorSourceName != null && shapeSourceName != null) {
+        processImages();
       }
     }
     catch(IOException ex) {
       ex.printStackTrace();
+      selectImage(type); // try again
     }
   }
 }
@@ -216,38 +191,43 @@ void colorizeB(int[] shape, int[] colors, int imageWidth) {
   }
 }
 
-void colorizeC(PImage shape, PImage colors) {
+void colorizeC(PImage shapeSource, PImage pallet) {
   // sort image and keep track of original position
   // swap values with color image's pixels
   // change back to original position
-
-  int[] originalIndexes = new int[shape.pixels.length];
+  shapeSource.loadPixels();
+  pallet.loadPixels();
+  
+  int[] originalIndexes = new int[shapeSource.pixels.length];
   for (int i = 0; i < originalIndexes.length; i++) {
     originalIndexes[i] = i;
   }
 
-  // fill xCoords and yCoords
-  reversableQuicksort(shape.pixels, 0, shape.pixels.length -1, 0, originalIndexes);
-  //setup colors to copy
-  colors.resize(shape.width, shape.height);
+  // fill originalIndexes
+  reversableQuicksort(shapeSource.pixels, 0, shapeSource.pixels.length -1, 0, originalIndexes);
+  //setup pallet to copy
+  pallet.resize(shapeSource.width, shapeSource.height);
 
   //sort each row by hue
-  for (int row = 0; row < colors.height; row++) {
-    int lo = row * colors.width;
-    int hi = (row + 1) * colors.width - 1;
-    quickSort(colors.pixels, lo, hi, 1);
+  for (int row = 0; row < pallet.height; row++) {
+    int lo = row * pallet.width;
+    int hi = (row + 1) * pallet.width - 1;
+    quickSort(pallet.pixels, lo, hi, 1);
   }
+  pallet.updatePixels();
 
-  for (int row = 0; row < shape.height; row++) {
-    int lo = row * shape.width;
-    int hi = (row + 1) * shape.width - 1;
-    reversableQuicksort(shape.pixels, lo, hi, 1, originalIndexes);
+  for (int row = 0; row < shapeSource.height; row++) {
+    int lo = row * shapeSource.width;
+    int hi = (row + 1) * shapeSource.width - 1;
+    reversableQuicksort(shapeSource.pixels, lo, hi, 1, originalIndexes);
   }
 
   // revert pixel positions
-  for (int i = 0; i < shape.pixels.length; i++) {
-    shape.pixels[originalIndexes[i]] = colors.pixels[i];
+  for (int i = 0; i < shapeSource.pixels.length; i++) {
+    shapeSource.pixels[originalIndexes[i]] = pallet.pixels[i];
   }
+  shapeSource.updatePixels();
+  isFinished = true;
 }
 
 // Quick sort algorithm from https://en.wikipedia.org/wiki/Quicksort
