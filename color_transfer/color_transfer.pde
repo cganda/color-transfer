@@ -33,6 +33,7 @@ void setup() {
 
   selectImage(imageSourceType.SHAPE);
   selectImage(imageSourceType.COLOR);
+  noLoop();
 }
 
 void draw() {
@@ -119,6 +120,7 @@ void imageSelected(File selection, imageSourceType type) {
         colorImg = new PImage(bimg);
         colorSourceName = name;
       }
+      redraw();
 
       if (colorSourceName != null && shapeSourceName != null) {
         processImages();
@@ -230,6 +232,7 @@ void colorizeC(PImage shapeSource, PImage pallet) {
   }
   shapeSource.updatePixels();
   isFinished = true;
+  redraw();
 }
 
 // Quick sort algorithm from https://en.wikipedia.org/wiki/Quicksort
