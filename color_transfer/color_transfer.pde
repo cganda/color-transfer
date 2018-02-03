@@ -75,7 +75,7 @@ void processImages() {
   finalImg = shapeImg.get();
   finalImg.loadPixels();
 
-  quickSort(sortedColorImg.pixels, 0, sortedColorImg.pixels.length - 1, sortType.BRIGHTNESS);
+  reversableQuicksort(sortedColorImg.pixels, 0, sortedColorImg.pixels.length/2, sortType.BRIGHTNESS, null);
   sortedColorImg.updatePixels(); //<>//
 
   //colorizeB(finalImg.pixels, sortedColorImg.pixels, sortedColorImg.width);
@@ -214,7 +214,7 @@ void colorizeC(PImage shapeSource, PImage pallet) {
   for (int row = 0; row < pallet.height; row++) {
     int lo = row * pallet.width;
     int hi = (row + 1) * pallet.width - 1;
-    quickSort(pallet.pixels, lo, hi, sortType.HUE);
+    reversableQuicksort(pallet.pixels, lo, hi, sortType.HUE, null);
   }
   pallet.updatePixels();
 
@@ -233,33 +233,6 @@ void colorizeC(PImage shapeSource, PImage pallet) {
 }
 
 // Quick sort algorithm from https://en.wikipedia.org/wiki/Quicksort
-void quickSort(int[] A, int lo, int hi, sortType type) {
-  if (lo < hi) {
-    int p = partition(A, lo, hi, type);
-    quickSort(A, lo, p - 1, type);
-    quickSort(A, p + 1, hi, type);
-  }
-}
-
-int partition(int[] A, int lo, int hi, sortType type) {
-  float pivot = type == sortType.BRIGHTNESS ? brightness(color(A[hi])) : hue(color(A[hi]));
-  int i = lo - 1;
-  for (int j = lo; j < hi; j++) {
-    if ((type == sortType.BRIGHTNESS && brightness(color(A[j])) < pivot) || 
-      (type == sortType.HUE && hue(color(A[j])) < pivot)) {
-      i = i + 1;
-      swap(A, i, j);
-    }
-  }
-  if ((type == sortType.BRIGHTNESS && brightness(color(A[hi])) < brightness(color(A[i + 1]))) ||
-    (type == sortType.HUE && hue(color(A[hi])) < hue(color(A[i + 1]))) ) {
-    int temp = A[i + 1];
-    A[i + 1] = A[hi];
-    A[hi] = temp;
-  }
-  return i + 1;
-}
-
 // quicksort that saves original positions
 void reversableQuicksort(int[] A, int lo, int hi, sortType type, int[] indexes) {
   if (lo < hi) {
@@ -278,14 +251,18 @@ int reversablePartition(int[] A, int lo, int hi, sortType type, int[] indexes) {
       ) {
       i = i + 1;
       swap(A, i, j);
-      swap(indexes, i, j);
+      if(indexes != null){
+        swap(indexes, i, j);
+      }
     }
   }
   if ((type == sortType.BRIGHTNESS && brightness(color(A[hi])) < brightness(color(A[i + 1]))) ||
     (type == sortType.HUE && hue(color(A[hi])) < hue(color(A[i + 1])))
     ) {
     swap(A, i+1, hi);
-    swap(indexes, i+1, hi);
+    if(indexes != null){
+      swap(indexes, i+1, hi);
+    }
   }
   return i + 1;
 }
