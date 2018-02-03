@@ -75,7 +75,7 @@ void processImages() {
   finalImg = shapeImg.get();
   finalImg.loadPixels();
 
-  reversableQuicksort(sortedColorImg.pixels, 0, sortedColorImg.pixels.length/2, sortType.BRIGHTNESS, null);
+  reversibleQuicksort(sortedColorImg.pixels, 0, sortedColorImg.pixels.length/2, sortType.BRIGHTNESS, null);
   sortedColorImg.updatePixels(); //<>//
 
   //colorizeB(finalImg.pixels, sortedColorImg.pixels, sortedColorImg.width);
@@ -206,7 +206,7 @@ void colorizeC(PImage shapeSource, PImage pallet) {
   }
 
   // fill originalIndexes
-  reversableQuicksort(shapeSource.pixels, 0, shapeSource.pixels.length -1, sortType.BRIGHTNESS, originalIndexes);
+  reversibleQuicksort(shapeSource.pixels, 0, shapeSource.pixels.length -1, sortType.BRIGHTNESS, originalIndexes);
   //setup pallet to copy
   pallet.resize(shapeSource.width, shapeSource.height);
 
@@ -214,14 +214,14 @@ void colorizeC(PImage shapeSource, PImage pallet) {
   for (int row = 0; row < pallet.height; row++) {
     int lo = row * pallet.width;
     int hi = (row + 1) * pallet.width - 1;
-    reversableQuicksort(pallet.pixels, lo, hi, sortType.HUE, null);
+    reversibleQuicksort(pallet.pixels, lo, hi, sortType.HUE, null);
   }
   pallet.updatePixels();
 
   for (int row = 0; row < shapeSource.height; row++) {
     int lo = row * shapeSource.width;
     int hi = (row + 1) * shapeSource.width - 1;
-    reversableQuicksort(shapeSource.pixels, lo, hi, sortType.HUE, originalIndexes);
+    reversibleQuicksort(shapeSource.pixels, lo, hi, sortType.HUE, originalIndexes);
   }
 
   // revert pixel positions
@@ -234,15 +234,19 @@ void colorizeC(PImage shapeSource, PImage pallet) {
 
 // Quick sort algorithm from https://en.wikipedia.org/wiki/Quicksort
 // quicksort that saves original positions
-void reversableQuicksort(int[] A, int lo, int hi, sortType type, int[] indexes) {
+void reversibleQuicksort(int[] A, int lo, int hi, sortType type, int[] indexes) {
+  if(hi >= A.length){
+   System.out.printf("hi is too big %d >= %d \n", hi, A.length);
+   return;
+  }
   if (lo < hi) {
-    int p = reversablePartition(A, lo, hi, type, indexes);
-    reversableQuicksort(A, lo, p - 1, type, indexes);
-    reversableQuicksort(A, p + 1, hi, type, indexes);
+    int p = reversiblePartition(A, lo, hi, type, indexes);
+    reversibleQuicksort(A, lo, p - 1, type, indexes);
+    reversibleQuicksort(A, p + 1, hi, type, indexes);
   }
 }
 
-int reversablePartition(int[] A, int lo, int hi, sortType type, int[] indexes) {
+int reversiblePartition(int[] A, int lo, int hi, sortType type, int[] indexes) {
   float pivot = type == sortType.BRIGHTNESS ? brightness(color(A[hi])) : hue(color(A[hi]));
   int i = lo - 1;
   for (int j = lo; j < hi; j++) {
