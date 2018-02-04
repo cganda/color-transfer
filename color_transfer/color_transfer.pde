@@ -4,6 +4,9 @@ import javax.imageio.*;
 import java.io.*;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
 
 PImage shapeImg;
 PImage sortedImg;
@@ -12,6 +15,7 @@ PImage sortedColorImg;
 PImage finalImg;
 String shapeSourceName;
 String colorSourceName;
+String saveFileExtension;
 
 boolean isFinished;
 
@@ -76,8 +80,8 @@ void processImages() {
   finalImg = shapeImg.get();
   finalImg.loadPixels();
 
-  reversibleQuicksort(sortedColorImg.pixels, 0, sortedColorImg.pixels.length/2, sortType.BRIGHTNESS, null);
-  sortedColorImg.updatePixels(); //<>//
+  reversibleQuicksort(sortedColorImg.pixels, 0, sortedColorImg.pixels.length - 1, sortType.BRIGHTNESS, null);
+  sortedColorImg.updatePixels();
 
   //colorizeB(finalImg.pixels, sortedColorImg.pixels, sortedColorImg.width);
   colorizeC(finalImg, sortedColorImg);
@@ -100,6 +104,9 @@ void imageSelected(File selection, imageSourceType type) {
       System.out.println("Not an image file");
       selectImage(type); // try again
       return;
+    }
+    if (type == imageSourceType.SHAPE) {
+      saveFileExtension = m.group(1).toLowerCase();
     }
 
     BufferedImage bimg;
@@ -230,17 +237,20 @@ void colorizeC(PImage shapeSource, PImage pallet) {
   for (int i = 0; i < shapeSource.pixels.length; i++) {
     shapeSource.pixels[originalIndexes[i]] = pallet.pixels[i];
   }
+  
   shapeSource.updatePixels();
   isFinished = true;
   redraw();
+
+  saveResult(shapeSource);
 }
 
 // Quick sort algorithm from https://en.wikipedia.org/wiki/Quicksort
 // quicksort that saves original positions
 void reversibleQuicksort(int[] A, int lo, int hi, sortType type, int[] indexes) {
-  if(hi >= A.length){
-   System.out.printf("hi is too big %d >= %d \n", hi, A.length);
-   return;
+  if (hi >= A.length) {
+    System.out.printf("hi is too big %d >= %d \n", hi, A.length);
+    return;
   }
   if (lo < hi) {
     int p = reversiblePartition(A, lo, hi, type, indexes);
@@ -258,7 +268,7 @@ int reversiblePartition(int[] A, int lo, int hi, sortType type, int[] indexes) {
       ) {
       i = i + 1;
       swap(A, i, j);
-      if(indexes != null){
+      if (indexes != null) {
         swap(indexes, i, j);
       }
     }
@@ -267,7 +277,7 @@ int reversiblePartition(int[] A, int lo, int hi, sortType type, int[] indexes) {
     (type == sortType.HUE && hue(color(A[hi])) < hue(color(A[i + 1])))
     ) {
     swap(A, i+1, hi);
-    if(indexes != null){
+    if (indexes != null) {
       swap(indexes, i+1, hi);
     }
   }
@@ -278,4 +288,17 @@ void swap(int[] arr, int a, int b) {
   int temp = arr[a];
   arr[a] = arr[b];
   arr[b] = temp;
+}
+
+void saveResult(PImage imageToSave) {
+  try {
+    SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HHmmss");
+    String resultName = "result-" + format.format(new Date()) + "." + saveFileExtension;
+    System.out.println("Saving to " + dataPath(resultName));
+    imageToSave.save(dataPath(resultName));
+  }
+  catch(Exception ex) {
+    System.out.println("Error saving result");
+    ex.printStackTrace();
+  }
 }
