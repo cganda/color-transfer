@@ -23,7 +23,7 @@ Download processing and open color_transfer.pde
 
 Or
 
-Use executable files in application._platform_ directories
+find releases on github
 
 ## Issues
 
