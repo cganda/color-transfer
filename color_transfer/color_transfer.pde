@@ -22,9 +22,6 @@ boolean isFinished;
 enum imageSourceType {
   SHAPE, COLOR
 };
-enum sortType {
-  BRIGHTNESS, HUE
-};
 
 void setup() {
   size(1200, 400);
@@ -80,11 +77,26 @@ void processImages() {
   finalImg = shapeImg.get();
   finalImg.loadPixels();
 
-  reversibleQuicksort(sortedColorImg.pixels, 0, sortedColorImg.pixels.length - 1, sortType.BRIGHTNESS, null);
+  int[] colorIndexes = new int[sortedColorImg.pixels.length];
+  float[] colorBrightnessValues = new float[sortedColorImg.pixels.length];
+  int[] colorCopy = new int[sortedColorImg.pixels.length];
+  for (int i = 0; i < sortedColorImg.pixels.length; i++) {
+    colorIndexes[i] = i;
+    colorCopy[i] = sortedColorImg.pixels[i];
+    colorBrightnessValues[i] = brightness(color(sortedColorImg.pixels[i]));
+  }
+  reversibleQuicksort(colorBrightnessValues, 0, colorBrightnessValues.length - 1, colorIndexes);
+
+  for (int i = 0; i < sortedColorImg.pixels.length; i++) {
+    sortedColorImg.pixels[i] = colorCopy[colorIndexes[i]];
+  }
   sortedColorImg.updatePixels();
 
+  long startTime = System.currentTimeMillis();
   //colorizeB(finalImg.pixels, sortedColorImg.pixels, sortedColorImg.width);
   colorizeC(finalImg, sortedColorImg);
+  long endTime = System.currentTimeMillis();
+  System.out.printf("Time taken: %dms", endTime - startTime);
 }
 void shapeImageSelected(File selection) {
   imageSelected(selection, imageSourceType.SHAPE);
@@ -206,38 +218,76 @@ void colorizeC(PImage shapeSource, PImage pallet) {
   // sort image and keep track of original position
   // swap values with color image's pixels
   // change back to original position
+  int pixelsLength = shapeSource.pixels.length;
   shapeSource.loadPixels();
   pallet.loadPixels();
 
-  int[] originalIndexes = new int[shapeSource.pixels.length];
-  for (int i = 0; i < originalIndexes.length; i++) {
+  int[] originalIndexes = new int[pixelsLength];
+  float[] shapeBrightnessValues = new float[pixelsLength];
+  int[] shapeCopy = new int[pixelsLength];
+  for (int i = 0; i < pixelsLength; i++) {
     originalIndexes[i] = i;
+    shapeCopy[i] = shapeSource.pixels[i];
+    shapeBrightnessValues[i] = brightness(color(shapeSource.pixels[i]));
+  }
+
+  reversibleQuicksort(shapeBrightnessValues, 0, pixelsLength - 1, originalIndexes);
+  // sort shapeSource pixels to get hue values later
+  for (int i = 0; i < pixelsLength; i++) {
+    shapeSource.pixels[i] = shapeCopy[originalIndexes[i]];
   }
 
   // fill originalIndexes
-  reversibleQuicksort(shapeSource.pixels, 0, shapeSource.pixels.length -1, sortType.BRIGHTNESS, originalIndexes);
   //setup pallet to copy
-  pallet.resize(shapeSource.width, shapeSource.height);
-
-  //sort each row by hue
-  for (int row = 0; row < pallet.height; row++) {
-    int lo = row * pallet.width;
-    int hi = (row + 1) * pallet.width - 1;
-    reversibleQuicksort(pallet.pixels, lo, hi, sortType.HUE, null);
+  if (pallet.pixels.length > pixelsLength) {
+    // make smaller before sorting
+    pallet.resize(shapeSource.width, shapeSource.height);
   }
-  pallet.updatePixels();
+  //sort each row by hue
+  int lo, hi;
+  int[] colorIndexes = new int[pallet.pixels.length];
+  int[] colorCopy = new int[pallet.pixels.length];
+  float[] colorHueValues = new float[pallet.pixels.length];
+  for (int i = 0; i < colorHueValues.length; i++) {
+    colorIndexes[i] = i;
+    colorCopy[i] = pallet.pixels[i];
+    colorHueValues[i] = hue(color(pallet.pixels[i]));
+  }
+  for (int row = 0; row < pallet.height; row++) {
+    lo = row * pallet.width;
+    hi = (row + 1) * pallet.width - 1;
+    reversibleQuicksort(colorHueValues, lo, hi, colorIndexes);
+  }
+  for (int i = 0; i < pallet.pixels.length; i++) {
+    pallet.pixels[i] = colorCopy[colorIndexes[i]];
+  }
 
+  if (pallet.pixels.length <= pixelsLength) {
+    // make larger after sorting
+    pallet.resize(shapeSource.width, shapeSource.height);
+  }
+
+  pallet.updatePixels();
+  
+  // sort shape rows by hue
+  float[] shapeHueValues = new float[shapeSource.pixels.length];
+  for (int i = 0; i < shapeHueValues.length; i++) {
+    shapeHueValues[i] = hue(color(shapeSource.pixels[i]));
+  }
+  if (shapeHueValues.length != shapeSource.pixels.length) {
+    System.out.printf("lengths do not match: %dvs%d", shapeHueValues.length, shapeSource.pixels.length);
+  }
   for (int row = 0; row < shapeSource.height; row++) {
-    int lo = row * shapeSource.width;
-    int hi = (row + 1) * shapeSource.width - 1;
-    reversibleQuicksort(shapeSource.pixels, lo, hi, sortType.HUE, originalIndexes);
+    lo = row * shapeSource.width;
+    hi = (row + 1) * shapeSource.width - 1;
+    reversibleQuicksort(shapeHueValues, lo, hi, originalIndexes);
   }
 
   // revert pixel positions
-  for (int i = 0; i < shapeSource.pixels.length; i++) {
+  for (int i = 0; i < pixelsLength; i++) {
     shapeSource.pixels[originalIndexes[i]] = pallet.pixels[i];
   }
-  
+
   shapeSource.updatePixels();
   isFinished = true;
   redraw();
@@ -247,25 +297,23 @@ void colorizeC(PImage shapeSource, PImage pallet) {
 
 // Quick sort algorithm from https://en.wikipedia.org/wiki/Quicksort
 // quicksort that saves original positions
-void reversibleQuicksort(int[] A, int lo, int hi, sortType type, int[] indexes) {
+void reversibleQuicksort(float[] A, int lo, int hi, int[] indexes) {
   if (hi >= A.length) {
     System.out.printf("hi is too big %d >= %d \n", hi, A.length);
     return;
   }
   if (lo < hi) {
-    int p = reversiblePartition(A, lo, hi, type, indexes);
-    reversibleQuicksort(A, lo, p - 1, type, indexes);
-    reversibleQuicksort(A, p + 1, hi, type, indexes);
+    int p = reversiblePartition(A, lo, hi, indexes);
+    reversibleQuicksort(A, lo, p - 1, indexes);
+    reversibleQuicksort(A, p + 1, hi, indexes);
   }
 }
 
-int reversiblePartition(int[] A, int lo, int hi, sortType type, int[] indexes) {
-  float pivot = type == sortType.BRIGHTNESS ? brightness(color(A[hi])) : hue(color(A[hi]));
+int reversiblePartition(float[] A, int lo, int hi, int[] indexes) {
+  float pivot = A[hi];
   int i = lo - 1;
   for (int j = lo; j < hi; j++) {
-    if ((type == sortType.BRIGHTNESS && brightness(color(A[j])) < pivot) ||
-      (type == sortType.HUE && hue(color(A[j])) < pivot)
-      ) {
+    if (A[j] < pivot) {
       i = i + 1;
       swap(A, i, j);
       if (indexes != null) {
@@ -273,9 +321,7 @@ int reversiblePartition(int[] A, int lo, int hi, sortType type, int[] indexes) {
       }
     }
   }
-  if ((type == sortType.BRIGHTNESS && brightness(color(A[hi])) < brightness(color(A[i + 1]))) ||
-    (type == sortType.HUE && hue(color(A[hi])) < hue(color(A[i + 1])))
-    ) {
+  if (A[hi] < A[i + 1]) {
     swap(A, i+1, hi);
     if (indexes != null) {
       swap(indexes, i+1, hi);
@@ -286,6 +332,12 @@ int reversiblePartition(int[] A, int lo, int hi, sortType type, int[] indexes) {
 
 void swap(int[] arr, int a, int b) {
   int temp = arr[a];
+  arr[a] = arr[b];
+  arr[b] = temp;
+}
+
+void swap(float[] arr, int a, int b) {
+  float temp = arr[a];
   arr[a] = arr[b];
   arr[b] = temp;
 }
