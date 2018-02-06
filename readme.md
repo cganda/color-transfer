@@ -17,9 +17,20 @@ When opened, two file dialogs will appear, one for the shape image and one for t
 
 This was created with [Processing](https://processing.org/), a java-base environment for visual applications
 
+## How to use
+
+Download processing and open color_transfer.pde
+
+Or
+
+Use executable files in application._platform_ directories
+
+## Issues
+
 Use small images to prevent out of memory errors.
 Some image combinations may have errors. The result image is not created or displayed.
 
+## Image sources
 Source Images from [Unsplash](https://unsplash.com/)
 - Bryce Canyon Photo by [Alex Povolyashko](https://unsplash.com/@alex_povolyashko) on Unsplash
 - Kitten Photo by [Loek Hertog](https://unsplash.com/@lue101) on Unsplash
