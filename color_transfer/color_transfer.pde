@@ -24,7 +24,7 @@ enum imageSourceType {
 
 public void setup() {
   size(1200, 400);
-  
+
   shapeImg = null;
   colorImg = null;
   finalImg = null;
@@ -77,26 +77,12 @@ public void processImages() {
   finalImg = shapeImg.get();
   finalImg.loadPixels();
 
-  int[] colorIndexes = new int[sortedColorImg.pixels.length];
-  float[] colorBrightnessValues = new float[sortedColorImg.pixels.length];
-  int[] colorCopy = new int[sortedColorImg.pixels.length];
-  for (int i = 0; i < sortedColorImg.pixels.length; i++) {
-    colorIndexes[i] = i;
-    colorCopy[i] = sortedColorImg.pixels[i];
-    colorBrightnessValues[i] = brightness(color(sortedColorImg.pixels[i]));
-  }
-  quickSort(colorBrightnessValues, 0, colorBrightnessValues.length, colorIndexes);
-
-  for (int i = 0; i < sortedColorImg.pixels.length; i++) {
-    sortedColorImg.pixels[i] = colorCopy[colorIndexes[i]];
-  }
-  sortedColorImg.updatePixels();
-
   long startTime = System.currentTimeMillis();
-  //colorizeB(finalImg.pixels, sortedColorImg.pixels, sortedColorImg.width);
-  colorizeC(finalImg, sortedColorImg);
+  //colorizeA(finalImg, sortedColorImg); System.out.println("using colorizeA");
+  //colorizeB(finalImg, sortedColorImg); System.out.println("using colorizeB");
+  colorizeC(finalImg, sortedColorImg); System.out.println("using colorizeC");
   long endTime = System.currentTimeMillis();
-  System.out.printf("Time taken: %dms", endTime - startTime);
+  System.out.printf("Time taken: %dms\n", endTime - startTime);
 }
 
 public void shapeImageSelected(File selection) {
@@ -139,7 +125,7 @@ public void imageSelected(File selection, imageSourceType type) {
       double scaleFactor = 400.0f / Math.max(imgWidth, imgHeight);
       int scaledWidth = (int) (scaleFactor * imgWidth);
       int scaledHeight = (int) (scaleFactor * imgHeight);
-      System.out.printf("resized width:%d height%d factor:%.3f\n", scaledWidth, scaledHeight, scaleFactor);
+      System.out.printf("resized width:%d height:%d factor:%.3f\n", scaledWidth, scaledHeight, scaleFactor);
       PImage resized = createImage(scaledWidth, scaledHeight, RGB);
       resized.copy(tempImage, 0, 0, imgWidth, imgHeight, 0, 0, scaledWidth, scaledHeight);
 
@@ -163,17 +149,18 @@ public void imageSelected(File selection, imageSourceType type) {
   }
 }
 
-public void colorizeA(int[] shape, int[] colors) {
+public void colorizeA(PImage shapeSource, PImage colorSource) {
   // for each pixel in shape image,
   // find closest pixel in sorted color array based on brightness
   // and replace with it
-  for (int i = 0; i < shape.length; i++) {
-    float targetBrightness = brightness(color(shape[i]));
-    int lo = 0, hi = colors.length - 1;
+  sortPixels(colorSource, false, null);
+  for (int i = 0; i < shapeSource.pixels.length; i++) {
+    float targetBrightness = brightness(color(shapeSource.pixels[i]));
+    int lo = 0, hi = colorSource.pixels.length - 1;
     int m = (lo + hi) / 2;
     while (lo <= hi) {
       m = (lo + hi) / 2;
-      float currentBrightness = brightness(color(colors[m]));
+      float currentBrightness = brightness(color(colorSource.pixels[m]));
       if (currentBrightness < targetBrightness) {
         lo = m + 1;
       } else if (currentBrightness > targetBrightness) {
@@ -182,22 +169,29 @@ public void colorizeA(int[] shape, int[] colors) {
         break;
       }
     }
-    shape[i] = colors[m];
+    shapeSource.pixels[i] = colorSource.pixels[m];
   }
+
+  shapeSource.updatePixels();
+  isFinished = true;
+  redraw();
+
+  saveResult(shapeSource);
 }
 
-public void colorizeB(int[] shape, int[] colors, int imageWidth) {
+public void colorizeB(PImage shapeSource, PImage colorSource) {
   // for each pixel in shape image,
   // find closest pixel in sorted color array based on brightness
   // then find the closest in hue within a range
   // and replace with it
-  for (int i = 0; i < shape.length; i++) {
-    float targetBrightness = brightness(color(shape[i]));
-    int lo = 0, hi = colors.length - 1;
+  sortPixels(colorSource, false, null);
+  for (int i = 0; i < shapeSource.pixels.length; i++) {
+    float targetBrightness = brightness(color(shapeSource.pixels[i]));
+    int lo = 0, hi = colorSource.pixels.length - 1;
     int m = (lo + hi) / 2;
     while (lo <= hi) {
       m = (lo + hi) / 2;
-      float currentBrightness = brightness(color(colors[m]));
+      float currentBrightness = brightness(color(colorSource.pixels[m]));
       if (currentBrightness < targetBrightness) {
         lo = m + 1;
       } else if (currentBrightness > targetBrightness) {
@@ -207,12 +201,12 @@ public void colorizeB(int[] shape, int[] colors, int imageWidth) {
       }
     }
     // find close hue
-    float targetHue = hue(color(shape[i]));
-    lo = (m / imageWidth) * imageWidth;
-    hi = lo + imageWidth - 1;
+    float targetHue = hue(color(shapeSource.pixels[i]));
+    lo = (m / shapeSource.width) * shapeSource.width;
+    hi = lo + shapeSource.width - 1;
     while (lo <= hi) {
       m = (lo + hi) / 2;
-      float currentHue = hue(color(colors[m]));
+      float currentHue = hue(color(colorSource.pixels[m]));
       if (currentHue < targetHue) {
         lo = m + 1;
       } else if (currentHue > targetHue) {
@@ -221,81 +215,7 @@ public void colorizeB(int[] shape, int[] colors, int imageWidth) {
         break;
       }
     }
-    shape[i] = colors[m];
-  }
-}
-
-public void colorizeC(PImage shapeSource, PImage pallet) {
-  // sort image and keep track of original position
-  // swap values with color image's pixels
-  // change back to original position
-  int pixelsLength = shapeSource.pixels.length;
-  shapeSource.loadPixels();
-  pallet.loadPixels();
-
-  int[] originalIndexes = new int[pixelsLength];
-  float[] shapeBrightnessValues = new float[pixelsLength];
-  int[] shapeCopy = new int[pixelsLength];
-  for (int i = 0; i < pixelsLength; i++) {
-    originalIndexes[i] = i;
-    shapeCopy[i] = shapeSource.pixels[i];
-    shapeBrightnessValues[i] = brightness(color(shapeSource.pixels[i]));
-  }
-
-  quickSort(shapeBrightnessValues, 0, pixelsLength, originalIndexes);
-  // sort shapeSource pixels to get hue values later
-  for (int i = 0; i < pixelsLength; i++) {
-    shapeSource.pixels[i] = shapeCopy[originalIndexes[i]];
-  }
-
-  // fill originalIndexes
-  //setup pallet to copy
-  if (pallet.pixels.length > pixelsLength) {
-    // make smaller before sorting
-    pallet.resize(shapeSource.width, shapeSource.height);
-  }
-
-  //sort each row by hue
-  int lo, hi;
-  int[] colorIndexes = new int[pallet.pixels.length];
-  int[] colorCopy = new int[pallet.pixels.length];
-  float[] colorHueValues = new float[pallet.pixels.length];
-  for (int i = 0; i < colorHueValues.length; i++) {
-    colorIndexes[i] = i;
-    colorCopy[i] = pallet.pixels[i];
-    colorHueValues[i] = hue(color(pallet.pixels[i]));
-  }
-  for (int row = 0; row < pallet.height; row++) {
-    lo = row * pallet.width;
-    quickSort(colorHueValues, lo, pallet.width, colorIndexes);
-  }
-  for (int i = 0; i < pallet.pixels.length; i++) {
-    pallet.pixels[i] = colorCopy[colorIndexes[i]];
-  }
-
-  if (pallet.pixels.length <= pixelsLength) {
-    // make larger after sorting
-    pallet.resize(shapeSource.width, shapeSource.height);
-  }
-
-  pallet.updatePixels();
-
-  // sort shape rows by hue
-  float[] shapeHueValues = new float[shapeSource.pixels.length]; //todo: reuse brightness array?
-  for (int i = 0; i < shapeHueValues.length; i++) {
-    shapeHueValues[i] = hue(color(shapeSource.pixels[i]));
-  }
-  if (shapeHueValues.length != shapeSource.pixels.length) {
-    System.out.printf("lengths do not match: %dvs%d", shapeHueValues.length, shapeSource.pixels.length);
-  }
-  for (int row = 0; row < shapeSource.height; row++) {
-    lo = row * shapeSource.width;
-    quickSort(shapeHueValues, lo, shapeSource.width, originalIndexes);
-  }
-
-  // revert pixel positions
-  for (int i = 0; i < pixelsLength; i++) {
-    shapeSource.pixels[originalIndexes[i]] = pallet.pixels[i];
+    shapeSource.pixels[i] = colorSource.pixels[m];
   }
 
   shapeSource.updatePixels();
@@ -303,6 +223,68 @@ public void colorizeC(PImage shapeSource, PImage pallet) {
   redraw();
 
   saveResult(shapeSource);
+}
+
+public void colorizeC(PImage shapeSource, PImage colorSource) {
+  // sort image and keep track of original position
+  // swap values with color image's pixels
+  // change back to original position
+  int[] originalIndexes = sortPixels(shapeSource, true, null);
+  sortPixels(colorSource, true, null);
+
+  // apply colors to shape image
+  for (int i = 0; i < shapeSource.pixels.length; i++) {
+    shapeSource.pixels[originalIndexes[i]] = colorSource.pixels[i];
+  }
+
+  shapeSource.updatePixels();
+  isFinished = true;
+  redraw();
+
+  saveResult(shapeSource);
+}
+
+// sorts pixels by brightness and optionally, also sorts rows hue
+// returns array of original indexes
+int[] sortPixels(PImage img, boolean shouldSortByHue, int[] originalIndexes) {
+  int pixelsLength = img.pixels.length;
+  img.loadPixels();
+
+  if (originalIndexes == null)
+    originalIndexes = new int[pixelsLength];
+
+  float[] values = new float[pixelsLength];
+  int[] pixelsCopy = new int[pixelsLength];
+  for (int i = 0; i < pixelsLength; i++) {
+    originalIndexes[i] = i;
+    pixelsCopy[i] = img.pixels[i];
+    values[i] = brightness(color(img.pixels[i]));
+  }
+
+  quickSort(values, 0, pixelsLength, originalIndexes);
+
+  // sort shapeSource pixels to get hue values later
+  for (int i = 0; i < pixelsLength; i++) {
+    img.pixels[i] = pixelsCopy[originalIndexes[i]];
+  }
+
+  if (!shouldSortByHue) return originalIndexes;
+
+  for (int i = 0; i < values.length; i++) {
+    values[i] = hue(color(img.pixels[i]));
+  }
+
+  // sort each row by hue
+  int lo;
+  for (int row = 0; row < img.height; row++) {
+    lo = row * img.width;
+    quickSort(values, lo, img.width, originalIndexes);
+  }
+  for (int i = 0; i < pixelsLength; i++) {
+    img.pixels[i] = pixelsCopy[originalIndexes[i]];
+  }
+
+  return originalIndexes;
 }
 
 // modified from algorithm by Darel Rex Finley found on http://alienryderflex.com/quicksort/
