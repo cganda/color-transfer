@@ -236,6 +236,21 @@ public void colorizeC(PImage shapeSource, PImage colorSource) {
   for (int i = 0; i < shapeSource.pixels.length; i++) {
     shapeSource.pixels[originalIndexes[i]] = colorSource.pixels[i];
   }
+  if (colorSource.pixels.length > shapeSource.pixels.length) {
+    // make smaller before sorting
+    colorSource.resize(shapeSource.width, shapeSource.height);
+  }
+  sortPixels(colorSource, true, null);
+  if (colorSource.pixels.length <= shapeSource.pixels.length) {
+    // make larger after sorting
+    colorSource.resize(shapeSource.width, shapeSource.height);
+  }
+
+  // apply colors to shape image
+  for (int i = 0; i < shapeSource.pixels.length; i++) {
+    shapeSource.pixels[originalIndexes[i]] = colorSource.pixels[i];
+  }
+
 
   shapeSource.updatePixels();
   isFinished = true;
